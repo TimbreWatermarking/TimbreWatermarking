@@ -1,0 +1,53 @@
+structure:
+  transformer: 0
+  conv2: 0
+  conv2mel: 1
+  mel: 1
+  share: 0
+  vocoder_step: 0
+  ab: 0
+
+
+robust: 0
+
+
+dim:
+  embedding: 512
+
+
+layer:
+  nlayers_encoder: 6
+  attention_heads_encoder: 8
+  nlayers_decoder: 6
+  attention_heads_decoder: 8
+
+
+wm:
+  kernel_size: 3
+  n_temporal_layer: 2
+
+
+audio:
+  kernel_size: 3
+  n_temporal_layer: 2
+
+
+conv_module:
+  hidden_size: 32
+  kernel_size: 13
+  n_temporal_layer: 5
+  n_linear_layer: 0
+  hidden_dim: 512
+
+
+conv2:
+  block: 'skip' #'skip', 'relu'
+  layers_CE: 3
+  layers_EM: 4
+  hidden_dim: 64
+
+
+test:
+  model_path: "./results/ckpt/pth/" 
+  model_name: False
+  index: -1

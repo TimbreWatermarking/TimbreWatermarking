@@ -1,0 +1,47 @@
+dataset: "librispeech"
+
+
+adv: True
+
+
+path:
+  raw_path: "/public/liuchang/data/LibriSpeech_wav/"
+  raw_path_test: "experiments/cloned_speechs"
+  wm_speech: "./results/wm_speech"
+  ckpt: "results/ckpt/"
+  log_path: "results/log/"
+
+
+watermark:
+  length: 10
+
+
+optimize:
+  lr: 0.00002
+  lambda_e: 1.
+  lambda_m: 10.
+  # lambda_m: 0.01
+  lambda_no_m: 0.01
+  lambda_a: 0.01
+  batch_size: 1
+  step_size: 5000 # large value means do not decay
+  gamma: 0.98
+  betas: [0.9, 0.98]
+  eps: 0.000000001
+  weight_decay: 0.0
+  grad_clip_thresh: 1.0
+  grad_acc_step: 1
+  up_step: 4000
+  anneal_steps: [300000, 400000, 500000]
+  anneal_rate: 0.3
+  lr_disc: 0.00002
+  alpha: 10
+  train_size: 31000
+
+
+iter:
+  epoch: 20
+  # epoch: 100
+  save_circle: 5
+  show_circle: 100
+  val_circle: 100

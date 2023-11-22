@@ -1,0 +1,13 @@
+audio:
+  or_sample_rate: 16000
+  sample_rate: 22050
+  max_wav_value: 32768.0
+  win_len: 256
+  max_len: 176000
+
+
+mel:
+  n_fft: 1024
+  hop_length: 256
+  win_length: 1024
+  audio_len: 3

@@ -1,0 +1,16 @@
+audiomentations==0.28.0
+fire==0.5.0
+julius==0.2.7
+kornia==0.6.9
+librosa==0.9.2
+numpy==1.24.2
+pydub==0.25.1
+pypesq==1.2.4
+PyYAML==6.0
+Resemblyzer==0.1.1.dev0
+rich==13.3.2
+scikit_learn==1.2.1
+scipy==1.10.1
+SoundFile==0.10.3.post1
+torch==1.13.0+cu116
+torchaudio==0.13.0+cu116

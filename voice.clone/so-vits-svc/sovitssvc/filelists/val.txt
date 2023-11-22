@@ -1,0 +1,2 @@
+./dataset/44k/opencpop/2001000028.wav
+./dataset/44k/opencpop/2001000001.wav
