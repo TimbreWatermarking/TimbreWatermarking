@@ -1,6 +1,6 @@
 # :rabbit: [Detecting Voice Cloning Attacks via Timbre Watermarking](https://github.com/TimbreWatermarking/TimbreWatermarking)
 
-Sourcecode for [paper](https://timbrewatermarking.github.io/paper.html) “Detecting Voice Cloning Attacks via Timbre Watermarking” by _Chang Liu, Jie Zhang, Tianwei Zhang, Xi Yang, Weiming Zhang, and Nenghai Yu_.  Visit our [website](https://timbrewatermarking.github.io/samples.html) for audio samples.
+Source code for [paper](https://timbrewatermarking.github.io/paper.html) “Detecting Voice Cloning Attacks via Timbre Watermarking” by _Chang Liu, Jie Zhang, Tianwei Zhang, Xi Yang, Weiming Zhang, and Nenghai Yu_.  Visit our [website](https://timbrewatermarking.github.io/samples.html) for audio samples.
 
 ## Introduction
 
