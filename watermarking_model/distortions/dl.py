@@ -113,7 +113,7 @@ class distortion(nn.Module):
         for i in a:
             f.append(torch.Tensor(self.augment(i,sample_rate=SAMPLE_RATE)))
         f = torch.cat(f,dim=0).unsqueeze(1).to(self.device)
-        # y = y + (f - y)
+        # y = y + (f - y).detach()
         # return y
         return f
     
@@ -272,18 +272,18 @@ class distortion(nn.Module):
             13: lambda x: self.medfilt(x, ratio),       # Median Filtering with ratio samples as window
             14: lambda x: self.low_band_pass(x),        # Low Pass Filtering 4 KHz
             15: lambda x: self.high_band_pass(x),       # High Pass Filtering 1 KHz 
-            16: lambda x: self.modify_mel(x, ratio),    
-            17: lambda x: self.crop_mel_front(x, ratio),        # mask from bottom with ratio "ratio"
-            18: lambda x: self.crop_mel_back(x, ratio),         # mask from top with ratio "ratio"
-            19: lambda x: self.crop_mel_wave_front(x, ratio),   # mask from bottom with ratio "ratio" and transform back to wav
+            16: lambda x: self.modify_mel(x, ratio),    # don't need
+            17: lambda x: self.crop_mel_front(x, ratio),# don't need        
+            18: lambda x: self.crop_mel_back(x, ratio), # don't need        
+            19: lambda x: self.crop_mel_wave_front(x, ratio),   # don't need
             20: lambda x: self.crop_mel_wave_back(x, ratio),    # mask from top with ratio "ratio" and transform back to wav
-            21: lambda x: self.crop_mel_position(x, ratio),     # mask at position "ratio"
-            22: lambda x: self.crop_mel_wave_position(x, ratio),# mask at position "ratio" and transform back to wav
+            21: lambda x: self.crop_mel_position(x, ratio),     # mask 10% at position "ratio"
+            22: lambda x: self.crop_mel_wave_position(x, ratio),# mask 10% at position "ratio" and transform back to wav
             
-            23: lambda x: self.crop_mel_position_5(x, ratio),
-            24: lambda x: self.crop_mel_wave_position_5(x, ratio),
-            25: lambda x: self.crop_mel_position_20(x, ratio),
-            26: lambda x: self.crop_mel_wave_position_20(x, ratio),
+            23: lambda x: self.crop_mel_position_5(x, ratio),       # mask 5% at position "ratio"
+            24: lambda x: self.crop_mel_wave_position_5(x, ratio),  # mask 5% at position "ratio" and transform back to wav
+            25: lambda x: self.crop_mel_position_20(x, ratio),      # mask 20% at position "ratio"
+            26: lambda x: self.crop_mel_wave_position_20(x, ratio), # mask 20% at position "ratio" and transform back to wav
         }
 
         x = x.clamp(-1, 1)

@@ -27,6 +27,76 @@ logging_mark = "#"*20
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+############################################################### set the attacks to testing ###############################################################
+test_atts = [4,5,6,7,8,9,10,11,12,13,14,15,20,21,22,23,24,25,26]  
+
+start = 4
+end = max(test_atts) + 1
+return_crop = [4, 5, 6]
+return_mel = [21, 23, 25]
+dont_need = [16, 17, 18, 19]
+
+# attack_functions = {
+#             0: lambda x: self.none(x),
+#             1: lambda x: self.crop(x),
+#             2: lambda x: self.crop2(x),
+#             3: lambda x: self.resample(x),
+#             4: lambda x: self.crop_front(x, ratio),     # Cropping front
+#             5: lambda x: self.crop_middle(x, ratio),    # Cropping middle
+#             6: lambda x: self.crop_back(x, ratio),      # Cropping behind
+#             7: lambda x: self.resample1(x),             # Resampling 16KHz
+#             8: lambda x: self.resample2(x),             # Resampling 8KHz
+#             9: lambda x: self.white_noise(x, ratio),    # Gaussian Noise with SNR ratio/2 dB
+#             10: lambda x: self.change_top(x, ratio),    # Amplitude Scaling ratio%
+#             11: lambda x: self.mp3(x, ratio),           # MP3 Compression ratio Kbps
+#             12: lambda x: self.recount(x),              # Recount 8 bps
+#             13: lambda x: self.medfilt(x, ratio),       # Median Filtering with ratio samples as window
+#             14: lambda x: self.low_band_pass(x),        # Low Pass Filtering 4 KHz
+#             15: lambda x: self.high_band_pass(x),       # High Pass Filtering 1 KHz 
+#             16: lambda x: self.modify_mel(x, ratio),    # don't need
+#             17: lambda x: self.crop_mel_front(x, ratio),# don't need        
+#             18: lambda x: self.crop_mel_back(x, ratio), # don't need        
+#             19: lambda x: self.crop_mel_wave_front(x, ratio),   # don't need
+#             20: lambda x: self.crop_mel_wave_back(x, ratio),    # mask from top with ratio "ratio" and transform back to wav
+#             21: lambda x: self.crop_mel_position(x, ratio),     # mask 10% at position "ratio"
+#             22: lambda x: self.crop_mel_wave_position(x, ratio),# mask 10% at position "ratio" and transform back to wav
+            
+#             23: lambda x: self.crop_mel_position_5(x, ratio),       # mask 5% at position "ratio"
+#             24: lambda x: self.crop_mel_wave_position_5(x, ratio),  # mask 5% at position "ratio" and transform back to wav
+#             25: lambda x: self.crop_mel_position_20(x, ratio),      # mask 20% at position "ratio"
+#             26: lambda x: self.crop_mel_wave_position_20(x, ratio), # mask 20% at position "ratio" and transform back to wav
+#         }
+
+
+def get_ratio_list(att):
+    if att < 4 or att in dont_need:
+        return 0
+    elif att in [4, 5, 6]: # Cropping front, middle, behind
+        ratio_list = [20,40,60,80,90,95,96,97,98]
+    elif att in [10]: # Amplitude Scaling
+        ratio_list = [20,40,60,80]
+    elif att in [9]: # GN
+        ratio_list = [40,50,60,70,80]  # snr = 1/2 * ratio
+    elif att in [11]: # mp3
+        ratio_list = [8,16,24,32,40,48,56,64]
+    elif att in [13]: # Median Filtering
+        ratio_list = [5, 15, 25, 35]
+    elif att in [7,8,12,14,15]: # Resampling, Recount, Filtering
+        ratio_list = [0]
+    elif att in [20]: # crop-mel-ratio-wave
+        ratio_list = [10,20,30,40,50,60,70,80]
+    elif att in [21, 22]: # crop-mel-position crop-mel-wave-position
+        ratio_list = [1,2,3,4,5,6,7,8,9,10]
+    elif att in [23, 24]: # crop-mel-position_5% crop-mel-wave-position_5%
+        ratio_list = [ri for ri in range(1,21)]
+    elif att in [25, 26]: # crop-mel-position_20% crop-mel-wave-position_20%
+        ratio_list = [ri for ri in range(1,6)]
+    else:
+        raise("Not implementation error")
+    return ratio_list
+
+
+
 def main(args, configs):
     logging.info('main function')
     process_config, model_config, train_config = configs
@@ -117,127 +187,33 @@ def main(args, configs):
     
     from distortions.dl import distortion
     dl = distortion(process_config)
-    # experiments_dir = 'experiments_results'
     experiments_dir = args.name
-    start = 4
-    end = 23
+
+
+
+    # initialize results
     all_results = []
-    # for att in range(0, end):
-    #     all_results.append({})
     for att in range(0, end):
         all_results.append({})
-        if att in [4,5,6]:
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [20,40,60,80,90,95,96,97,98]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [10]:
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [20,40,60,80]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [9]: # gn
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [10,20,30,40,50,60,70,80]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [11]: #mp3
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [8,16,24,32,40,48,56,64]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [13]: #medianfilt
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [5, 15, 25, 35]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [7,8,12,14,15]:
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            ratio = 0
-            # all_results[att].append({})
+    for att in test_atts:
+        if att < 4 or att in dont_need:
+            continue
+        ratio_list = get_ratio_list(att)
+        now_dir = os.path.join(experiments_dir, str(att))
+        if not os.path.exists(now_dir): os.makedirs(now_dir)
+        for ratio in ratio_list:
             avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
             rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-            all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        # elif att in [17, 18]: # crop-mel
-        #     for ratio in [10,20,30,40,50,60,70,80]:
-        #         # all_results[att].append({})
-        #         avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-        #         rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-        #         all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        # elif att in [19,20]: # crop-mel-wave
-        #     for ratio in [10,20,30,40,50,60,70,80]:
-        #         # all_results[att].append({})
-        #         avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-        #         rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-        #         all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att < 4 or att in [16, 17, 18, 19, 20]:
-            pass
-        elif att in [21]: # crop-mel-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [22]: # crop-mel-wave-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [23]: # crop-mel-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in range(1, 21):
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [24]: # crop-mel-wave-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in range(1, 21):
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [25]: # crop-mel-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in range(1, 6):
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        elif att in [26]: # crop-mel-wave-position
-            now_dir = os.path.join(experiments_dir, str(att))
-            if not os.path.exists(now_dir): os.makedirs(now_dir)
-            for ratio in range(1, 6):
-                # all_results[att].append({})
-                avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim = 0, 0, 0, 0, 0, 0
-                rf = open(os.path.join(now_dir, str(att)+"_"+str(ratio) + ".txt"), 'w')
-                all_results[att][str(ratio)] = {'f':rf, 'avgs':[avg_encode_snr, avg_decode_acc, avg_att_snr, avg_att_pesq, avg_att_utterance_sim, avg_att_spk_sim], 'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")}
-        else:
-            raise("Not implementation error")
+            all_results[att][str(ratio)] = {
+                                            'f':rf, 
+                                            'avgs':[avg_decode_acc,
+                                                    avg_encode_snr, 
+                                                    avg_att_snr, 
+                                                    avg_att_pesq, 
+                                                    avg_att_utterance_sim, 
+                                                    avg_att_spk_sim], 
+                                            'example':os.path.join(now_dir, str(att)+"_"+str(ratio)+".wav")
+                                            }
     
     # cal fedlity
     from utils.tools import fidelity
@@ -262,7 +238,6 @@ def main(args, configs):
             losses = loss.en_de_loss(wav_matrix, encoded, msg, decoded)
             decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
             snr_score, pesq_score, utterance_sim_matrix, spk_sim_matrix = fidelity(wav_matrix.detach(), encoded.detach(), process_config["audio"]["sample_rate"])
-            # snr = 10 * torch.log10(mse_loss(wav_matrix.detach(), zero_tensor) / mse_loss(wav_matrix.detach(), encoded.detach()))
             zero_tensor = torch.zeros(wav_matrix.shape).to(device)
             norm2=mse_loss(wav_matrix.detach(),zero_tensor)
             avg_pesq += pesq_score
@@ -274,385 +249,50 @@ def main(args, configs):
             logging.info("step:{} - wav_loss:{:.8f} - msg_loss:{:.8f} - acc:{:.8f} - snr:{:.8f} - pesq:{:.8f} - utterance_sim:{:.8f}- spk_sim:{:.8f}  - wav_len:{} - name:{}".format( \
                 global_step, losses[0], losses[1], decoder_acc, snr_score, pesq_score, utterance_sim_matrix, spk_sim_matrix, wav_matrix.shape[2], sample["name"][0]))
             
-            for att in range(start, end):
-                if att in [4,5,6]:
-                    for ratio in [20,40,60,80,90,95,96,97,98]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        if att not in [4,5,6]:
-                            att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        else:
-                            att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [10]:
-                    for ratio in [20,40,60,80]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        if att not in [4,5,6]:
-                            att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        else:
-                            att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [9]: # gn
-                    for ratio in [40,50,60,70,80]: # snr = 1/2 * ratio
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [11]: #mp3
-                    for ratio in [8,16,24,32,40,48,56,64]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [13]: #medianfilt
-                    for ratio in [5, 15, 25, 35]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [7,8,12,14,15]:
-                    ratio = 0
+            # test distortions
+            for att in test_atts:
+                if att < 4 or att in dont_need:
+                    continue
+                ratio_list = get_ratio_list(att)
+                for ratio in ratio_list:
                     distored = dl(encoded, att, ratio)
-                    decoded = decoder.test_forward(distored)
+                    if att in return_mel:
+                        decoded = decoder.mel_test_forward(distored)
+                    else:
+                        decoded = decoder.test_forward(distored)
                     decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
                     all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
                     all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                    att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
+                    if att not in return_crop+return_mel:
+                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
+                    else:
+                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0, 0, 0, 0
                     all_results[att][str(ratio)]['avgs'][2] += att_snr
                     all_results[att][str(ratio)]['avgs'][3] += att_pesq
                     all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
                     all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                    all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                    if global_step == 1:
+                    all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(\
+                                                                    name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
+                    if global_step == 1 and att not in return_mel: # not wav form
                         soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
                     logging.info('-' * 100)
                     logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
                         global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                # elif att in [17, 18]: # crop-mel
-                #     for ratio in [10,20,30,40,50,60,70,80,90]:
-                #         distored = dl(encoded, att, ratio)
-                #         decoded = decoder.mel_test_forward(distored)
-                #         decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                #         all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                #         all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                #         att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                #         all_results[att][str(ratio)]['avgs'][2] += att_snr
-                #         all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                #         all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                #         all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                #         all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                #         # if global_step == 1:
-                #         #     soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                #         logging.info('-' * 100)
-                #         logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                #             global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                # elif att in [19,20]: # crop-mel-wave
-                #     for ratio in [10,20,30,40,50,60,70,80,90]:
-                #         distored = dl(encoded, att, ratio)
-                #         decoded = decoder.test_forward(distored)
-                #         decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                #         all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                #         all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                #         att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                #         all_results[att][str(ratio)]['avgs'][2] += att_snr
-                #         all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                #         all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                #         all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                #         all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                #         if global_step == 1:
-                #             soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                #         logging.info('-' * 100)
-                #         logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                #             global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [21]: # crop-mel-position
-                    for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.mel_test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        # if global_step == 1:
-                        #     soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [22]: # crop-mel-wave-position
-                    for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                        
-                elif att in [23]: # crop-mel-position
-                    for ratio in range(1, 21):
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.mel_test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        # if global_step == 1:
-                        #     soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [24]: # crop-mel-wave-position
-                    for ratio in range(1, 21):
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [25]: # crop-mel-position
-                    for ratio in range(1, 6):
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.mel_test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = 0,0,0,0
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        # if global_step == 1:
-                        #     soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att in [26]: # crop-mel-wave-position
-                    for ratio in range(1, 6):
-                        distored = dl(encoded, att, ratio)
-                        decoded = decoder.test_forward(distored)
-                        decoder_acc = (decoded >= 0).eq(msg >= 0).sum().float() / msg.numel()
-                        all_results[att][str(ratio)]['avgs'][0] += decoder_acc.item()
-                        all_results[att][str(ratio)]['avgs'][1] += snr_score
-
-                        att_snr, att_pesq, att_utterance_sim, att_spk_sim = fidelity(encoded.detach(), distored.detach(), process_config["audio"]["sample_rate"])
-                        all_results[att][str(ratio)]['avgs'][2] += att_snr
-                        all_results[att][str(ratio)]['avgs'][3] += att_pesq
-                        all_results[att][str(ratio)]['avgs'][4] += att_utterance_sim
-                        all_results[att][str(ratio)]['avgs'][5] += att_spk_sim
-                        all_results[att][str(ratio)]['f'].write("audio:{},\tsnr:{:.8f}, acc:{:.8f}, att_snr:{:.8f}, att_pesq:{:.8f}, att_utterance_sim:{:.8f}, att_spk_sim:{:.8f}\n".format(name, snr_score.item(), decoder_acc, att_snr, att_pesq, att_utterance_sim, att_spk_sim))
-                        if global_step == 1:
-                            soundfile.write(all_results[att][str(ratio)]['example'], distored.cpu().squeeze(0).squeeze(0).detach().numpy(), samplerate=process_config["audio"]["sample_rate"])
-                        logging.info('-' * 100)
-                        logging.info("step:{} - acc:{:.8f} - snr:{:.8f} - att_snr:{:.8f} - att_pesq:{:.8f} - att_utterance_sim:{:.8f} - att_spk_sim:{:.8f} - name:{}".format( \
-                            global_step, decoder_acc, snr_score, att_snr, att_pesq, att_utterance_sim, att_spk_sim, sample["name"][0]))
-                elif att < 4 or att in [16, 17, 18, 19, 20]:
-                    pass
-                else:
-                    raise("Not implementation error")
+                    
         rf.write("{} audios, avg_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}".format(global_step, avg_snr/global_step, avg_pesq/global_step, avg_utterance_sim/global_step, avg_spk_sim/global_step))
         rf.close()
         wmf.close()
     
     # close txt
-    for att in range(start, end):
-        if att in [4,5,6]:
-            for ratio in [20,40,60,80,90,95,96,97,98]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [10]:
-            for ratio in [20,40,60,80]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [9]: # gn
-            for ratio in [10,20,30,40,50,60,70,80]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [11]: #mp3
-            for ratio in [8,16,24,32,40,48,56,64]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [13]: #medianfilt
-            for ratio in [5, 15, 25, 35]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [7,8,12,14,15]:
-            ratio = 0
+    for att in test_atts:
+        if att < 4 or att in dont_need:
+                    continue
+        ratio_list = get_ratio_list(att)
+        for ratio in ratio_list:
             temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-            all_results[att][str(ratio)]['f'].write("{} audios, avg_snr:{:.8f}, avg_acc:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
+            all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
             all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
             all_results[att][str(ratio)]['f'].close()
-        # elif att in [17, 18]: # crop-mel
-        #     for ratio in [10,20,30,40,50,60,70,80]:
-        #         temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-        #         all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].close()
-        # elif att in [19,20]: # crop-mel-wave
-        #     for ratio in [10,20,30,40,50,60,70,80]:
-        #         temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-        #         all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].close()
-        elif att in [21]: # crop-mel-position
-            for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [22]: # crop-mel-wave-position
-            for ratio in [1,2,3,4,5,6,7,8,9,10]:
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-
-        elif att in [23]: # crop-mel-position
-            for ratio in range(1, 21):
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [24]: # crop-mel-wave-position
-            for ratio in range(1, 21):
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [25]: # crop-mel-position
-            for ratio in range(1, 6):
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        elif att in [26]: # crop-mel-wave-position
-            for ratio in range(1, 6):
-                temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-                all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-                all_results[att][str(ratio)]['f'].close()
-        # elif att in [23,24,25]:
-        #     for ratio in [99]:
-        #         temp = np.array(all_results[att][str(ratio)]['avgs'])/global_step
-        #         all_results[att][str(ratio)]['f'].write("{} audios, avg_acc:{:.8f}, avg_snr:{:.8f}, avg_att_snr:{:.8f}, avg_pesq:{:.8f}, utterance_sim:{:.8f}, spk_sim:{:.8f}\n".format(global_step, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].write("{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t".format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]))
-        #         all_results[att][str(ratio)]['f'].close()
-        elif att < 4 or att in [16, 17, 18, 19, 20]:
-            pass
-        else:
-            raise("Not implementation error")
     
 
 
