@@ -51,8 +51,8 @@ dont_need = [16, 17, 18, 19]
 #             11: lambda x: self.mp3(x, ratio),           # MP3 Compression ratio Kbps
 #             12: lambda x: self.recount(x),              # Recount 8 bps
 #             13: lambda x: self.medfilt(x, ratio),       # Median Filtering with ratio samples as window
-#             14: lambda x: self.low_band_pass(x),        # Low Pass Filtering 4 KHz
-#             15: lambda x: self.high_band_pass(x),       # High Pass Filtering 1 KHz 
+#             14: lambda x: self.low_band_pass(x),        # Low Pass Filtering 2000 Hz
+#             15: lambda x: self.high_band_pass(x),       # High Pass Filtering 500 Hz 
 #             16: lambda x: self.modify_mel(x, ratio),    # don't need
 #             17: lambda x: self.crop_mel_front(x, ratio),# don't need        
 #             18: lambda x: self.crop_mel_back(x, ratio), # don't need        
