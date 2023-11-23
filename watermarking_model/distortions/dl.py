@@ -20,8 +20,8 @@ class distortion(nn.Module):
         self.resample_kernel2_re = julius.ResampleFrac(8000, SAMPLE_RATE,).to(device)
         self.augment = Compose([Mp3Compression(p=1.0, min_bitrate=64, max_bitrate=64)])
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.band_lowpass = julius.LowPassFilter(4/44.1).to(device)
-        self.band_highpass = julius.HighPassFilter(1/44.1).to(device)
+        self.band_lowpass = julius.LowPassFilter(2000/SAMPLE_RATE).to(device)
+        self.band_highpass = julius.HighPassFilter(500/SAMPLE_RATE).to(device)
         self.stft = fixed_STFT(process_config["mel"]["n_fft"], process_config["mel"]["hop_length"], process_config["mel"]["win_length"]).to(self.device)
     
     def none(self, x):
