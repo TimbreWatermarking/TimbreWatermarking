@@ -75,7 +75,7 @@ python embed_and_save.py --wm 0 \
                          -mp "checkpoint/path/" \
                          -p config/process.yaml -m config/model.yaml -t config/train.yaml
 ```
-Then, we train each voice cloning model using the watermarked dataset, i.e., Tacotron2, Fastspeech2, VITS, or fine-tune HifiGAN. We have provided the source code used for training each model, available [here](https://github.com/TimbreWatermarking/TimbreWatermarking/voice.clone/). Additionally, detailed explanations on how to perform cloning on PaddleSpeech and Voice-Clone-App, as well as corresponding model examples, are also provided there.
+Then, we train each voice cloning model using the watermarked dataset, i.e., Tacotron2, Fastspeech2, VITS, or fine-tune HifiGAN. We have provided the source code used for training each model, available [here](https://github.com/TimbreWatermarking/TimbreWatermarking/tree/main/voice.clone). Additionally, detailed explanations on how to perform cloning on PaddleSpeech and Voice-Clone-App, as well as corresponding model examples, are also provided there.
 
 
 After completing the cloning, you can use the following command to extract watermarks from the generated cloned voice:
