@@ -1,6 +1,7 @@
 # :rabbit: [Detecting Voice Cloning Attacks via Timbre Watermarking](https://github.com/TimbreWatermarking/TimbreWatermarking)
 
-Source code for [paper](https://timbrewatermarking.github.io/paper.html) “Detecting Voice Cloning Attacks via Timbre Watermarking” by _Chang Liu, Jie Zhang, Tianwei Zhang, Xi Yang, Weiming Zhang, and Nenghai Yu_.  Visit our [website](https://timbrewatermarking.github.io/samples.html) for audio samples.
+Source code for [paper](https://timbrewatermarking.github.io/paper.html) “Detecting Voice Cloning Attacks via Timbre Watermarking” by _Chang Liu, Jie Zhang, Tianwei Zhang, Xi Yang, Weiming Zhang, and Nenghai Yu_ In [Network and Distributed System Security Symposium (NDSS) 2024](https://www.ndss-symposium.org/ndss2024/).
+Visit our [website](https://timbrewatermarking.github.io/samples.html) for audio samples.
 
 ## Introduction
 
@@ -19,5 +20,14 @@ Part of our experiments were based on code from several open-source repositories
 
 
 
-<!-- ## Citation
-If you find this work useful, please consider citing our paper -->
+## Citation
+If you find this work useful, please consider citing our paper:
+```
+@inproceedings{timbrewatermarking-ndss2024,
+  title = {Detecting Voice Cloning Attacks via Timbre Watermarking},
+  author = {Liu, Chang and Zhang, Jie and Zhang, Tianwei and Yang, Xi and Zhang, Weiming and Yu, Nenghai},
+  booktitle = {Network and Distributed System Security Symposium},
+  year = {2024},
+  doi = {10.14722/ndss.2024.24200},
+}
+```
