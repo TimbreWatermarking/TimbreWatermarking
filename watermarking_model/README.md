@@ -104,13 +104,13 @@ python train.py -p config/process.yaml -m config/model.yaml -t config/train.yaml
 ```
 
 # Update for flexibility: watermark strength factor
-Just like the version of the model that resists watermark overwriting, we can also add a watermark strength factor to the base model by simply multiplying the watermark feature by a weight. The higher the weight, the stronger the robustness of the watermark, but the corresponding auditory quality will decrease. Below is an example with the watermark embedded at 1.5 times the weight. We also recommend removing the skip concatenate in the encoder to simplify the processing flow when utilizing this flexibility, with the corresponding model checkpoint available [here](https://drive.google.com/drive/folders/1YdFcGwZbSf5DoDjXYFi2CVwvNHh-zXYq?usp=drive_link).
+Just like the version of the model that resists watermark overwriting, we can also add a watermark strength factor to the base model by simply multiplying the watermark feature by a weight. The higher the weight, the stronger the robustness of the watermark, but the corresponding auditory quality will decrease. Below is an example with the watermark embedded at `1.1` times the weight. We also recommend removing the skip concatenate in the encoder to simplify the processing flow when utilizing this flexibility, with the corresponding model checkpoint available [here](https://drive.google.com/drive/folders/1YdFcGwZbSf5DoDjXYFi2CVwvNHh-zXYq?usp=drive_link).
 ```
 python embed_and_save_with_strength.py --wm 0 \
                                        -o "original/ljspeech/wavs/path/" \
                                        -s "saving/watermarked/ljspeech/path/" \
                                        -mp "model2/checkpoint/path/" \
                                        -p config/process.yaml -m config/model.yaml -t config/train.yaml \
-                                       --strength_factor 1.5
+                                       --strength_factor 1.1
 ```
 The extraction process remains the same, but be sure to use the corresponding model ckpt file.
