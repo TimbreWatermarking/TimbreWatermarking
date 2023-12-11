@@ -118,7 +118,8 @@ class distortion(nn.Module):
         return f
     
     def recount(self, y):
-        y2 = torch.tensor(np.array(y.cpu().squeeze(0).data.numpy()*(2**7)).astype(np.int8)) / (2**7)
+        # y2 = torch.tensor(np.array(y.cpu().squeeze(0).data.numpy()*(2**7)).astype(np.int8)) / (2**7)
+        y2 = torch.tensor((np.array(y.cpu().squeeze(0).data.numpy()+1)/2*(2**8-1)).astype(np.uint8)) / (2**8-1) * 2 - 1
         y2 = y2.to(self.device)
         y = y + (y2 - y).detach()
         return y
