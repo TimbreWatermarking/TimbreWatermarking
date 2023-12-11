@@ -9,7 +9,7 @@ You can setup the conda environment and install the Python dependencies with
 ```
 git clone https://github.com/TimbreWatermarking/TimbreWatermarking.git
 cd TimbreWatermarking/watermarking_model
-conda cerate -n timbrewatermark python=3.8.13
+conda create -n timbrewatermark python=3.8.13
 source activate timbrewatermark
 pip install -r requirements.txt
 ```
