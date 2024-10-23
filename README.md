@@ -9,7 +9,9 @@ Visit our [website](https://timbrewatermarking.github.io/samples.html) for audio
 
 ## Introduction
 
-:rabbit2: In this repository, we provide the complete code for training and testing the watermarking model. Additionally, we include the source code used for voice cloning experiments under various scenarios, along with corresponding README files. `Please visit the respective directories to access detailed READMEs`
+:rabbit2: In this repository, we provide the complete code for training and testing the watermarking model. Additionally, we include the source code used for voice cloning experiments under various scenarios, along with corresponding README files. 
+
+`Please visit the respective directories to access detailed READMEs.`
 
 - [watermarking_model](https://github.com/TimbreWatermarking/TimbreWatermarking/tree/main/watermarking_model): Code of the watermarking model
 - [voice.clone](https://github.com/TimbreWatermarking/TimbreWatermarking/tree/main/voice.clone): Code and details of the voice cloning part
